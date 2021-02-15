@@ -1,46 +1,44 @@
 # Part-2
 
-from flask import Flask, jsonify, session
+from flask import Flask, jsonify, session,request, render_template, g
 from flask_sqlalchemy import SQLAlchemy
 import math
-import datetime
+import time
+
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///sqlite.db'
 app.secret_key = "Testing"
 db = SQLAlchemy(app)
 
-# Creating table for keeping track of no. of times every user requested and its time stamp. 
+
+# Creating table for keeping track of no. of times every user requested and its time stamp.
 class TaskUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.String(5000))
+    elapsed_time = db.Column(db.String(5000))
     cntFreq = db.Column(db.Integer)
-    
+
+
 db.create_all()
+@app.before_request
+def before_request():
+    g.request_start_time = time.time()
+    g.request_time = lambda: "%.5fs" % (time.time() - g.request_start_time)
 
 # routing for app giving two inputs with "/" i.e. "localhost:5000/1/10" will give
-# prime numbers between 1 and 10 
+# prime numbers between 1 and 10
 @app.route('/<start>/<end>')
-
 def primeNo(start, end):
-    
     # for existing user
 
     if session.get('id'):
-        
-        user = TaskUser.query.filter_by(id = session.get('id')).first()
-        print(f", timestamp =[ {user.timestamp}]")
-        user.timestamp += f"{str(datetime.datetime.now())}\n"
-        user.cntFreq +=1
+        user = TaskUser.query.filter_by(id=session.get('id')).first()
+        user.elapsed_time = user.elapsed_time + " " + g.request_time()
+        user.cntFreq += 1
         db.session.commit()
 
-    # for new user request
-
     else:
-        
-
-        user = TaskUser(timestamp=str(datetime.datetime.now()), cntFreq = 1)
-        
-        # adding user 
+        user = TaskUser(elapsed_time=g.request_time(), cntFreq=1)
+        # adding user
         db.session.add(user)
         db.session.commit()
         session['id'] = user.id
@@ -48,7 +46,7 @@ def primeNo(start, end):
     start = int(start)
     end = int(end)
     ans = []
-  
+
     # maintain a temporary list
     temp = [True] * (end + 1)
 
@@ -69,17 +67,16 @@ def primeNo(start, end):
         if temp[i] == True:
             ans.append(i)
 
-    dic["Prime numbers between given two numbers"] = ans
+    dic["Prime numbers between given two numbers"] = set(ans)
     dic["No. of times this user has requested"] = user.cntFreq
-    dic["timestamp"]=user.timestamp
+    dic["elapsed_time"] = user.elapsed_time.split()
     dic["LengthOfPrimeNumberList"] = len(ans)
-    
+
     # Finally Return the json object
     return jsonify(dic)
 
 
 if __name__ == '__main__':
-
     app.run()
 #     Time Complexity : O(N (log(log N)))
 #     Space Complexity : O(N)
