@@ -4,7 +4,7 @@ from flask import Flask, jsonify, session,request, render_template, g
 from flask_sqlalchemy import SQLAlchemy
 import math
 import time
-
+import datetime
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///sqlite.db'
 app.secret_key = "Testing"
@@ -15,6 +15,7 @@ db = SQLAlchemy(app)
 class TaskUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     elapsed_time = db.Column(db.String(5000))
+    timestamp = db.Column(db.String(5000))
     cntFreq = db.Column(db.Integer)
 
 
@@ -33,11 +34,12 @@ def primeNo(start, end):
     if session.get('id'):
         user = TaskUser.query.filter_by(id=session.get('id')).first()
         user.elapsed_time = user.elapsed_time + " " + g.request_time()
+        user.timestamp = user.timestamp + ","+ str(datetime.datetime.now())
         user.cntFreq += 1
         db.session.commit()
 
     else:
-        user = TaskUser(elapsed_time=g.request_time(), cntFreq=1)
+        user = TaskUser(timestamp=str(datetime.datetime.now()), elapsed_time=g.request_time(), cntFreq=1)
         # adding user
         db.session.add(user)
         db.session.commit()
@@ -67,16 +69,16 @@ def primeNo(start, end):
         if temp[i] == True:
             ans.append(i)
 
-    dic["Prime numbers between given two numbers"] = set(ans)
+    dic[f"Prime numbers between {start} and {end} is "] = ans
     dic["No. of times this user has requested"] = user.cntFreq
     dic["elapsed_time"] = user.elapsed_time.split()
     dic["LengthOfPrimeNumberList"] = len(ans)
-
+    dic['time_stamp'] = user.timestamp.split(",")
     # Finally Return the json object
     return jsonify(dic)
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
 #     Time Complexity : O(N (log(log N)))
 #     Space Complexity : O(N)
